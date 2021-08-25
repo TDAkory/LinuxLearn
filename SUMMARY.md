@@ -4,13 +4,13 @@
 
 ## Basics
 
-* [Untitled](basics/untitled.md)
+* [Basics](basics/untitled.md)
 
 ## Network
 
-* [Untitled](network/untitled.md)
+* [Network](network/untitled.md)
 
 ## GoDeep
 
-* [Untitled](godeep/untitled.md)
+* [GoDeep](godeep/untitled.md)
 
