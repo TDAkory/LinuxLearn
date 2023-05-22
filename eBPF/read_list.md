@@ -7,6 +7,8 @@
 
 * [狄卫华老师的收集的BPF文章和教程](https://github.com/DavadDi/bpf_study)
 * [ebpf.io](https://ebpf.io/)
+* [awesome ebpf](https://github.com/zoidbergwill/awesome-ebpf)
+* [ebpf slides](https://github.com/gojue/ebpf-slide)
 
 ## Books
 
@@ -21,3 +23,10 @@
 - [Linux超能力BPF技术介绍及学习分享](https://www.sohu.com/a/418582768_198222)
 - [USDT](https://leezhenghui.github.io/linux/2019/03/05/exploring-usdt-on-linux.html)
 - [Brendan Gregg's Blog](https://www.brendangregg.com/blog/2019-01-01/learn-ebpf-tracing.html)
+
+## Repo Template
+
+- [基于C语言和 libbpf 框架的eBPF项目模板](https://github.com/eunomia-bpf/libbpf-starter-template)
+- [基于C语言和cilium/ebpf框架的eBPF项目模板](https://github.com/eunomia-bpf/cilium-ebpf-starter-template)
+- [基于Rust语言和libbpf-rs框架的eBPF项目模板](https://github.com/eunomia-bpf/libbpf-rs-starter-template)
+- [基于C语言和eunomia-bpf框架的eBPF项目模板](https://github.com/eunomia-bpf/eunomia-template)
