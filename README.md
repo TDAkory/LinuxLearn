@@ -2,7 +2,8 @@
 
 ## WebSite
 
--[LWN.net](https://lwn.net/)
+- [LWN.net](https://lwn.net/)
+- [The Linux Kernel](https://www.kernel.org/doc/html/next/index.html)
 
 ## Blogs
 
