@@ -17,6 +17,8 @@ Codename:	buster
 
 - [LWN.net](https://lwn.net/)
 - [The Linux Kernel](https://www.kernel.org/doc/html/next/index.html)
+- [Kernel Code Repo, github is slow](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/about/)
+
 
 ## Blogs
 
