@@ -13,6 +13,10 @@ Release:	10
 Codename:	buster
 ```
 
+## Notes
+
+- `git clone https://mirrors.tuna.tsinghua.edu.cn/git/linux.git` 清华源，下载快，github慢
+
 ## WebSite
 
 - [LWN.net](https://lwn.net/)
