@@ -4,7 +4,7 @@
 
 ## 双向链表
 
-核心文件：`include/linux/list.h`
+> 核心文件：`include/linux/list.h`
 
 ```
 /*
@@ -207,6 +207,10 @@ static inline int list_empty(const struct list_head *head)
 
 ## 哈希链表
 
+> `/include/linux/list.h`
+
+### 基本结构
+
 ```c
 // /include/linux/types.h
 struct hlist_head {
@@ -216,6 +220,268 @@ struct hlist_head {
 struct hlist_node {
 	struct hlist_node *next, **pprev;
 };
+```
+
+`hlist_head` 和 `hlist_node` 是内核哈希链表的头节点和数据节点，其结构如下图所示。`hlist_head` 在哈希桶中，仅包含一个指向链表的指针，数据节点则都分布在链表上，包含前驱和后继两个指针。
+
+特别的是，数据节点 `hlist_node` 是一个二级指针，指向的是前一个节点的 `next` 指针。之所以这么做，是因为链表首个元素的前驱是 `hlist_head`，这种情况下，链表中的`prev`指针无法做到统一表达，因此需要用二级指针来屏蔽这种差异。
+
+![hash_table](https://raw.githubusercontent.com/TDAkory/ImageResources/main/img/hlist_node.png)
+
+此外对哈希表节点的数据访问和双向链表的数据访问方式完全一致，通过 `hlist_entry` 宏即可实现：
+
+```c
+#define hlist_entry(ptr, type, member) container_of(ptr,type,member)
+```
+
+### 常用接口
+
+**初始化**，这里的注释也可以看到，hlist_head 设计为单指针主要是为了节约内存占用，缺陷就是无法通过一次访问找到链表尾结点。不过这个需求在哈希表中并不是很常用。
+
+```c
+/*
+ * Double linked lists with a single pointer list head.
+ * Mostly useful for hash tables where the two pointer list head is
+ * too wasteful.
+ * You lose the ability to access the tail in O(1).
+ */
+
+#define HLIST_HEAD_INIT { .first = NULL }
+#define HLIST_HEAD(name) struct hlist_head name = {  .first = NULL }
+#define INIT_HLIST_HEAD(ptr) ((ptr)->first = NULL)
+static inline void INIT_HLIST_NODE(struct hlist_node *h)
+{
+	h->next = NULL;
+	h->pprev = NULL;
+}
+```
+
+**添加**提供了几种常用实现，添加到链表头、链表元素的前面、链表元素的后面。
+
+```c
+static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
+{
+	struct hlist_node *first = h->first;
+	n->next = first;
+	if (first)
+		first->pprev = &n->next;
+	WRITE_ONCE(h->first, n);
+	n->pprev = &h->first;
+}
+
+/* next must be != NULL */
+static inline void hlist_add_before(struct hlist_node *n,
+					struct hlist_node *next)
+{
+	n->pprev = next->pprev;
+	n->next = next;
+	next->pprev = &n->next;
+	WRITE_ONCE(*(n->pprev), n);
+}
+
+static inline void hlist_add_behind(struct hlist_node *n,
+				    struct hlist_node *prev)
+{
+	n->next = prev->next;
+	prev->next = n;
+	n->pprev = &prev->next;
+
+	if (n->next)
+		n->next->pprev  = &n->next;
+}
+```
+
+**删除**，把当前节点从链表中移除
+
+```c
+static inline void __hlist_del(struct hlist_node *n)
+{
+	struct hlist_node *next = n->next;
+	struct hlist_node **pprev = n->pprev;
+
+	WRITE_ONCE(*pprev, next);
+	if (next)
+		next->pprev = pprev;
+}
+
+static inline void hlist_del(struct hlist_node *n)
+{
+	__hlist_del(n);
+	n->next = LIST_POISON1;
+	n->pprev = LIST_POISON2;
+}
+```
+
+**判空**
+
+```c
+static inline int hlist_empty(const struct hlist_head *h)
+{
+	return !READ_ONCE(h->first);
+}
+```
+
+**遍历**和双向链表工作原理一样，不过实现上要复杂一点，并且没有反向迭代的版本
+
+```c
+/**
+ * hlist_for_each_entry	- iterate over list of given type
+ * @pos:	the type * to use as a loop cursor.
+ * @head:	the head for your list.
+ * @member:	the name of the hlist_node within the struct.
+ */
+#define hlist_for_each_entry(pos, head, member)				\
+	for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member);\
+	     pos;							\
+	     pos = hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
+
+/**
+ * hlist_for_each_entry_safe - iterate over list of given type safe against removal of list entry
+ * @pos:	the type * to use as a loop cursor.
+ * @n:		another &struct hlist_node to use as temporary storage
+ * @head:	the head for your list.
+ * @member:	the name of the hlist_node within the struct.
+ */
+#define hlist_for_each_entry_safe(pos, n, head, member) 		\
+	for (pos = hlist_entry_safe((head)->first, typeof(*pos), member);\
+	     pos && ({ n = pos->member.next; 1; });			\
+	     pos = hlist_entry_safe(n, typeof(*pos), member))
+```
+
+## 队列
+
+> 核心文件 /include/linux/kfifo.h 
+
+A generic kernel FIFO implementation
+
+### 基本结构
+
+```c
+struct __kfifo {
+	unsigned int	in;
+	unsigned int	out;
+	unsigned int	mask;
+	unsigned int	esize;
+	void		*data;
+};
+```
+
+内核FIFO的实现非常高效，它使用一个环形数组来存储数据，并且使用两个指针来标记队列的入口和出口
+
+* in标记入队索引，入队n个数据时，in变量就+n
+* out标记出队索引，出队k个数据时，out变量就+k
+* out不允许大于in（out等于in时表示fifo为空）
+* in不允许比out大超过fifo空间
+* in、out都会保持增长，不会轻易从零重新计算
+* 如果需要获取位置，则in、out会按位与mask，mask的大小是 size - 1，同时会要求FIFO的大小必须是2的幂次，保证了获取位置的效率
+
+```c
+#define __STRUCT_KFIFO_COMMON(datatype, recsize, ptrtype) \
+	union { \
+		struct __kfifo	kfifo; \
+		datatype	*type; \
+		const datatype	*const_type; \
+		char		(*rectype)[recsize]; \
+		ptrtype		*ptr; \
+		ptrtype const	*ptr_const; \
+	}
+
+#define __STRUCT_KFIFO(type, size, recsize, ptrtype) \
+{ \
+	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype); \
+	type		buf[((size < 2) || (size & (size - 1))) ? -1 : size]; \
+}
+
+#define STRUCT_KFIFO(type, size) \
+	struct __STRUCT_KFIFO(type, size, 0, type)
+
+/**
+ * DECLARE_KFIFO - macro to declare a fifo object
+ * @fifo: name of the declared fifo
+ * @type: type of the fifo elements
+ * @size: the number of elements in the fifo, this must be a power of 2
+ */
+#define DECLARE_KFIFO(fifo, type, size)	STRUCT_KFIFO(type, size) fifo
+
+#define __STRUCT_KFIFO_PTR(type, recsize, ptrtype) \
+{ \
+	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype); \
+	type		buf[0]; \
+}
+
+#define STRUCT_KFIFO_PTR(type) \
+	struct __STRUCT_KFIFO_PTR(type, 0, type)
+
+/**
+ * DECLARE_KFIFO_PTR - macro to declare a fifo pointer object
+ * @fifo: name of the declared fifo
+ * @type: type of the fifo elements
+ */
+#define DECLARE_KFIFO_PTR(fifo, type)	STRUCT_KFIFO_PTR(type) fifo
+```
+
+宏定义提供了两种方式来声明一个FIFO结构，分别是静态的 STRUCT_KFIFO 和 动态的 STRUCT_KFIFO_PTR。
+
+以 STRUCT_KFIFO 为例，假设我们定义一个存储int型数据的FIFO，大小为16，则最终的展开结果是：
+
+```c
+// STRUCT_KFIFO(my_fifo, int, 16)
+//      |
+// STRUCT_KFIFO(int, 16) my_fifo
+//      |
+// struct __STRUCT_KFIFO(int, 16, 0, int) my_fifo
+//      |
+// struct {
+// 	__STRUCT_KFIFO_COMMON(int, 0, int); 
+// 	int buf[((16 < 2) || (16 & (16 - 1))) ? -1 : 16];
+// } my_fifo
+
+struct {
+	union {
+		struct __kfifo	kfifo;
+		int		*type;
+		const int	*const_type;
+		int		(*rectype)[0];
+		int		*ptr;
+		int const	*ptr_const;
+	};
+	int buf[16];
+} my_fifo;
+```
+
+上述展开结果中，存在通过 __STRUCT_KFIFO_COMMON 展开的一个 union，为什么这么设计呢？因为 __kfifo 中并不包含元素数据类型，元素指针类型，那如何确定这些类型呢？这些类型实质上是保存在了 union 的声明中，比如可以通过 typeof(*my_fifo->type) 来获取到 my_fifo 的数据类型是 int 类型。同时这些额外的声明（type、const_typ，etc）放在union内，也不会占用 my_fifo 的运行期开销。
+
+动态的声明，唯一的区别就是不会立即指定buf大小，而是用一个不定长数组 buf[0] 来表示。
+
+随之而来的问题是如果给出了一个 FIFO 的变量名，如何确定是通过哪一种方式声明的呢？内核也提供了判断方法，其判断是根据FIFO的数据是否和其结构存放在一起：
+
+```c
+/*
+ * helper macro to distinguish between real in place fifo where the fifo
+ * array is a part of the structure and the fifo type where the array is
+ * outside of the fifo structure.
+ */
+#define	__is_kfifo_ptr(fifo) \
+	(sizeof(*fifo) == sizeof(STRUCT_KFIFO_PTR(typeof(*(fifo)->type))))
+```
+
+### 初始化
+
+```c
+/**
+ * INIT_KFIFO - Initialize a fifo declared by DECLARE_KFIFO
+ * @fifo: name of the declared fifo datatype
+ */
+#define INIT_KFIFO(fifo) \
+(void)({ \
+	typeof(&(fifo)) __tmp = &(fifo); \
+	struct __kfifo *__kfifo = &__tmp->kfifo; \
+	__kfifo->in = 0; \
+	__kfifo->out = 0; \
+	__kfifo->mask = __is_kfifo_ptr(__tmp) ? 0 : ARRAY_SIZE(__tmp->buf) - 1;\
+	__kfifo->esize = sizeof(*__tmp->buf); \
+	__kfifo->data = __is_kfifo_ptr(__tmp) ?  NULL : __tmp->buf; \
+})
 ```
 
 ## Ref
