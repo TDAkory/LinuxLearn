@@ -2,6 +2,25 @@
 
 > 本文内容基于 Linux v5.4 源码
 
+- [从源码学习Linux中的数据结构](#从源码学习linux中的数据结构)
+	- [双向链表](#双向链表)
+		- [基本结构](#基本结构)
+		- [常用接口](#常用接口)
+	- [哈希链表](#哈希链表)
+		- [基本结构](#基本结构-1)
+		- [常用接口](#常用接口-1)
+	- [队列](#队列)
+		- [基本结构](#基本结构-2)
+		- [初始化](#初始化)
+		- [入队](#入队)
+		- [出队](#出队)
+	- [映射表](#映射表)
+		- [基本结构](#基本结构-3)
+		- [基本使用流程](#基本使用流程)
+		- [初始化和销毁](#初始化和销毁)
+	- [xarray](#xarray)
+	- [Ref](#ref)
+
 ## 双向链表
 
 > 核心文件：`include/linux/list.h`
@@ -350,7 +369,7 @@ static inline int hlist_empty(const struct hlist_head *h)
 
 ## 队列
 
-> 核心文件 /include/linux/kfifo.h 
+> 核心文件 /include/linux/kfifo.h  /lib/kfifo.c
 
 A generic kernel FIFO implementation
 
@@ -467,6 +486,8 @@ struct {
 
 ### 初始化
 
+对于静态的FIFO，其初始化动作不涉及内存分配，仅更新了 __kfifo 的成员变量。 注意mask的大小是 size - 1，并将data指向了union外部的buf，这样就在 __kfifo 一个结构内实现了对 FIFO的管理。
+
 ```c
 /**
  * INIT_KFIFO - Initialize a fifo declared by DECLARE_KFIFO
@@ -484,6 +505,341 @@ struct {
 })
 ```
 
+此外，内核还提供了 `#define DEFINE_KFIFO(fifo, type, size)`，能够在一句代码中完成对 FIFO 的声明和定义。
+
+对于动态的FIFO，则需要在初始化时，分配buf空间，并将buf指针赋值给__kfifo的data成员变量。
+
+内核在这里采用了一个校验参数是否为指针类型的技巧，即 `typeof((fifo) + 1)`。如果传入的是普通结构体，表达式将会引发编译器错误，因为结构体与一个整数一起使用一元加号是不允许的。如果传入的是指针，那么二元加号将会对其加1，结果仍然是同一类型的指针，并且表达式在语法上是正确的。
+
+实际的内存分配发生在`kmalloc_array`，定义在`/include/linux/slab.h`，其实际分配了一串连续的内存作为一个array，其入参分别是：元素个数、元素大小、给分配器的标志位
+
+```c
+/**
+ * kfifo_alloc - dynamically allocates a new fifo buffer
+ * @fifo: pointer to the fifo
+ * @size: the number of elements in the fifo, this must be a power of 2
+ * @gfp_mask: get_free_pages mask, passed to kmalloc()
+ *
+ * This macro dynamically allocates a new fifo buffer.
+ *
+ * The number of elements will be rounded-up to a power of 2.
+ * The fifo will be release with kfifo_free().
+ * Return 0 if no error, otherwise an error code.
+ */
+#define kfifo_alloc(fifo, size, gfp_mask) \
+__kfifo_int_must_check_helper( \
+({ \
+	typeof((fifo) + 1) __tmp = (fifo); \
+	struct __kfifo *__kfifo = &__tmp->kfifo; \
+	__is_kfifo_ptr(__tmp) ? \
+	__kfifo_alloc(__kfifo, size, sizeof(*__tmp->type), gfp_mask) : \
+	-EINVAL; \
+}) \
+)
+
+// /lib/kfifo.c
+int __kfifo_alloc(struct __kfifo *fifo, unsigned int size,
+		size_t esize, gfp_t gfp_mask)
+{
+	/*
+	 * round up to the next power of 2, since our 'let the indices
+	 * wrap' technique works only in this case.
+	 */
+	size = roundup_pow_of_two(size);
+
+	fifo->in = 0;
+	fifo->out = 0;
+	fifo->esize = esize;
+
+	if (size < 2) {
+		fifo->data = NULL;
+		fifo->mask = 0;
+		return -EINVAL;
+	}
+
+	fifo->data = kmalloc_array(esize, size, gfp_mask);
+
+	if (!fifo->data) {
+		fifo->mask = 0;
+		return -ENOMEM;
+	}
+	fifo->mask = size - 1;
+
+	return 0;
+}
+EXPORT_SYMBOL(__kfifo_alloc);
+```
+
+### 入队
+
+入队是通过copy的方式完整数据的转移的
+
+```c
+static void kfifo_copy_in(struct __kfifo *fifo, const void *src,
+		unsigned int len, unsigned int off)
+{
+	unsigned int size = fifo->mask + 1;
+	unsigned int esize = fifo->esize;
+	unsigned int l;
+
+	off &= fifo->mask;
+	// 可以认为off、size、len都是归一化的，因此当element_size != 1时，需要round up到其真实大小
+	if (esize != 1) {
+		off *= esize;
+		size *= esize;
+		len *= esize;
+	}
+	// 这里体现了FIFO是循环的，当尾部空余不足以放下数据的时候，会对数据进行切分，分别拷贝在尾部和头部
+	l = min(len, size - off);
+
+	memcpy(fifo->data + off, src, l);
+	memcpy(fifo->data, src + l, len - l);
+	/*
+	 * make sure that the data in the fifo is up to date before
+	 * incrementing the fifo->in index counter
+	 */
+	smp_wmb();
+}
+
+unsigned int __kfifo_in(struct __kfifo *fifo,
+		const void *buf, unsigned int len)
+{
+	unsigned int l;
+	// 校验FIFO的可用空间是否足够，不足的情况下，会通过改写len对数据进行截断
+	l = kfifo_unused(fifo);
+	if (len > l)
+		len = l;
+
+	kfifo_copy_in(fifo, buf, len, fifo->in);
+	// 完成拷贝之后，再更新指针位置，通过上述smp_wmb保证了数据的可见性
+	fifo->in += len;
+	return len;
+}
+EXPORT_SYMBOL(__kfifo_in);
+```
+
+### 出队
+
+出队提供了两种场景语义：`peek`,`pop`，peek不修改fifo的状态。此外出队的具体逻辑基本就是入队的镜像操作。
+
+```c
+static void kfifo_copy_out(struct __kfifo *fifo, void *dst,
+		unsigned int len, unsigned int off)
+{
+	unsigned int size = fifo->mask + 1;
+	unsigned int esize = fifo->esize;
+	unsigned int l;
+
+	off &= fifo->mask;
+	if (esize != 1) {
+		off *= esize;
+		size *= esize;
+		len *= esize;
+	}
+	l = min(len, size - off);
+
+	memcpy(dst, fifo->data + off, l);
+	memcpy(dst + l, fifo->data, len - l);
+	/*
+	 * make sure that the data is copied before
+	 * incrementing the fifo->out index counter
+	 */
+	smp_wmb();
+}
+
+unsigned int __kfifo_out_peek(struct __kfifo *fifo,
+		void *buf, unsigned int len)
+{
+	unsigned int l;
+
+	l = fifo->in - fifo->out;
+	if (len > l)
+		len = l;
+
+	kfifo_copy_out(fifo, buf, len, fifo->out);
+	return len;
+}
+EXPORT_SYMBOL(__kfifo_out_peek);
+
+unsigned int __kfifo_out(struct __kfifo *fifo,
+		void *buf, unsigned int len)
+{
+	len = __kfifo_out_peek(fifo, buf, len);
+	fifo->out += len;
+	return len;
+}
+EXPORT_SYMBOL(__kfifo_out);
+```
+
+## 映射表
+
+> `/include/linux/idr.h`  `/lib/idr.c`
+
+在源码的文件注释中，是这么解释idr的：`Small id to pointer translation service avoiding fixed sized tables.`
+
+简单来说，struct idr 是在 Linux 内核中定义的一种数据结构，用于实现 ID 到指针的映射。这种映射机制允许内核将整数值（ID）与内存地址（指针）相关联，便于通过 ID 快速访问和管理内核中的资源。struct idr 通常用于管理如进程 ID、文件描述符 ID、IPC（进程间通信）ID 等系统资源。
+
+struct idr 的实现通常基于基数树（radix tree）或者类基数树的结构，这种数据结构提供了高效的查找、插入和删除操作。
+
+### 基本结构
+
+```c
+struct idr {
+    struct radix_tree_root idr_rt;  // 基数树的根节点，用于存储 ID 到指针的映射
+    unsigned int idr_base;          // IDR的基地址，表示分配ID的起始值
+    unsigned int idr_next;          // 用于循环分配的下一个ID的位置
+};
+```
+
+可以看到radix tree是基于array实现的，我们会在后面的章节分析xarray的实现细节。
+
+```c
+// /include/linux/radix-tree.h
+/* Keep unconverted code working */
+#define radix_tree_root		xarray
+#define radix_tree_node		xa_node
+```
+
+### 基本使用流程
+
+```c
+#include <linux/idr.h>
+
+// 使用 `DEFINE_IDR` 宏定义一个静态分配的 IDR 实例，或者使用 `idr_init` 函数初始化一个动态分配的 IDR 实例。
+DEFINE_IDR(my_idr);
+// 或者
+struct idr *my_idr;
+my_idr = kmalloc(sizeof(*my_idr), GFP_KERNEL);
+idr_init(my_idr);
+
+// 如果需要，可以预加载内存以优化 IDR 的性能，为当前 CPU 的 radix_tree_node 缓冲区加载足够的对象（节点），以确保在树中添加单个元素时不会失败。如果函数成功执行，即成功预加载了所需的基数树节点，它将返回 0。此外，在返回时，会保持对内核抢占的禁用状态。这意味着一旦函数成功执行完毕，调用者需要负责重新启用抢占。
+idr_preload(GFP_KERNEL);
+
+// 使用 `idr_alloc` 或 `idr_alloc_cyclic` 函数分配一个唯一的 ID 并将它与一个指针关联。
+int id;
+void *ptr = kmalloc(sizeof(*ptr), GFP_KERNEL); // 分配内存给指针
+id = idr_alloc(my_idr, ptr, 0, 0, GFP_KERNEL);
+
+// 使用 `idr_find` 函数通过 ID 来查找对应的指针。
+void *found_ptr = idr_find(my_idr, id);
+
+// 如果需要遍历 IDR，可以使用 `idr_get_next` 函数来获取序列中的下一个 ID。
+int next_id;
+void *next_ptr = idr_get_next(my_idr, &next_id);
+
+// 使用 `idr_for_each` 或 `idr_for_each_entry` 宏来遍历 IDR 中的所有条目。
+idr_for_each(my_idr, my_callback, NULL);
+   
+// 如果需要更新指针，可以使用 `idr_replace` 函数来替换特定 ID 的指针。
+void *new_ptr = kmalloc(sizeof(*new_ptr), GFP_KERNEL);
+idr_replace(my_idr, new_ptr, id);
+
+// 使用 `idr_remove` 函数从 IDR 中移除一个 ID 及其关联的指针。
+idr_remove(my_idr, id);
+   
+// 使用 `idr_is_empty` 函数检查 IDR 是否没有任何分配的 ID。
+bool empty = idr_is_empty(my_idr);
+
+// 当 IDR 不再需要时，使用 `idr_destroy` 函数来销毁 IDR 并释放相关资源。
+idr_destroy(my_idr);
+// 如果是动态分配的 IDR 实例，还需要释放内存
+kfree(my_idr);
+
+// 如果在分配ID之前使用了 `idr_preload`，使用完毕后需要调用 `idr_preload_end` 来结束预加载。
+idr_preload_end();
+```
+
+### 初始化和销毁
+
+静态初始化通过如下宏展开实现，完成了radix tree的初始化，并把两个id都初始化为零
+
+```c
+#define IDR_INIT_BASE(name, base) {					\
+	.idr_rt = RADIX_TREE_INIT(name, IDR_RT_MARKER),			\
+	.idr_base = (base),						\
+	.idr_next = 0,							\
+}
+
+#define IDR_INIT(name)	IDR_INIT_BASE(name, 0)
+
+#define DEFINE_IDR(name)	struct idr name = IDR_INIT(name)
+```
+
+动态初始化如下，除了idr是动态分配，需要传入指针之外，还允许我们传入初始id的值。
+
+```c
+static inline void idr_init_base(struct idr *idr, int base)
+{
+	INIT_RADIX_TREE(&idr->idr_rt, IDR_RT_MARKER);
+	idr->idr_base = base;
+	idr->idr_next = 0;
+}
+
+/**
+ * idr_init() - Initialise an IDR.
+ * @idr: IDR handle.
+ *
+ * Initialise a dynamically allocated IDR.  To initialise a
+ * statically allocated IDR, use DEFINE_IDR().
+ */
+static inline void idr_init(struct idr *idr)
+{
+	idr_init_base(idr, 0);
+}
+```
+
+内核提供了 `idr_remove` 删除id并释放相关数据 `idr_destroy` 释放所有的id映射和层
+
+```c
+/**
+ * idr_remove() - Remove an ID from the IDR.
+ * @idr: IDR handle.
+ * @id: Pointer ID.
+ *
+ * Removes this ID from the IDR.  If the ID was not previously in the IDR,
+ * this function returns %NULL.
+ *
+ * Since this function modifies the IDR, the caller should provide their
+ * own locking to ensure that concurrent modification of the same IDR is
+ * not possible.
+ *
+ * Return: The pointer formerly associated with this ID.
+ */
+void *idr_remove(struct idr *idr, unsigned long id)
+{
+	return radix_tree_delete_item(&idr->idr_rt, id - idr->idr_base, NULL);
+}
+EXPORT_SYMBOL_GPL(idr_remove);
+
+// /lib/radix-tree.c
+/**
+ * idr_destroy - release all internal memory from an IDR
+ * @idr: idr handle
+ *
+ * After this function is called, the IDR is empty, and may be reused or
+ * the data structure containing it may be freed.
+ *
+ * A typical clean-up sequence for objects stored in an idr tree will use
+ * idr_for_each() to free all objects, if necessary, then idr_destroy() to
+ * free the memory used to keep track of those objects.
+ */
+void idr_destroy(struct idr *idr)
+{
+	struct radix_tree_node *node = rcu_dereference_raw(idr->idr_rt.xa_head);
+	if (radix_tree_is_internal_node(node))
+		radix_tree_free_nodes(node);
+	idr->idr_rt.xa_head = NULL;
+	root_tag_set(&idr->idr_rt, IDR_FREE);
+}
+EXPORT_SYMBOL(idr_destroy);
+```
+
+## xarray
+
+> `/include/linux/xarray.h`  See Documentation/core-api/xarray.rst for how to use the XArray.
+
 ## Ref
 
+- [kernel v5.4 source code](https://elixir.bootlin.com/linux/v5.4/source)
 - [内核数据结构](https://mickyching.github.io/kernel/linux-kernel-data-structures.html)
+- [What is 'typeof((fifo) + 1)' means from linux/kfifo.h file?](https://stackoverflow.com/questions/16196440/what-is-typeoffifo-1-means-from-linux-kfifo-h-file)
