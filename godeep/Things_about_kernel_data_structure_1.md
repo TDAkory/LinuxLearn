@@ -201,13 +201,13 @@ static inline int list_empty(const struct list_head *head)
  * @n:		another &struct list_head to use as temporary storage
  * @head:	the head for your list.
  */
-#define list_for_each_safe(pos, n, head) \
-	for (pos = (head)->next, n = pos->next; pos != (head); \
+#define list_for_each_safe(pos, n, head) 					\
+	for (pos = (head)->next, n = pos->next; pos != (head); 	\
 		pos = n, n = pos->next)
 
-#define list_for_each_prev_safe(pos, n, head) \
-	for (pos = (head)->prev, n = pos->prev; \
-	     pos != (head); \
+#define list_for_each_prev_safe(pos, n, head) 	\
+	for (pos = (head)->prev, n = pos->prev; 	\
+	     pos != (head); 						\
 	     pos = n, n = pos->prev)
 ```
 
@@ -351,9 +351,9 @@ static inline int hlist_empty(const struct hlist_head *h)
  * @head:	the head for your list.
  * @member:	the name of the hlist_node within the struct.
  */
-#define hlist_for_each_entry(pos, head, member)				\
-	for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member);\
-	     pos;							\
+#define hlist_for_each_entry(pos, head, member)								\
+	for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member);		\
+	     pos;																\
 	     pos = hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
 
 /**
@@ -363,9 +363,9 @@ static inline int hlist_empty(const struct hlist_head *h)
  * @head:	the head for your list.
  * @member:	the name of the hlist_node within the struct.
  */
-#define hlist_for_each_entry_safe(pos, n, head, member) 		\
-	for (pos = hlist_entry_safe((head)->first, typeof(*pos), member);\
-	     pos && ({ n = pos->member.next; 1; });			\
+#define hlist_for_each_entry_safe(pos, n, head, member) 				\
+	for (pos = hlist_entry_safe((head)->first, typeof(*pos), member);	\
+	     pos && ({ n = pos->member.next; 1; });							\
 	     pos = hlist_entry_safe(n, typeof(*pos), member))
 ```
 
@@ -383,7 +383,7 @@ struct __kfifo {
 	unsigned int	out;
 	unsigned int	mask;
 	unsigned int	esize;
-	void		*data;
+	void			*data;
 };
 ```
 
@@ -397,20 +397,20 @@ struct __kfifo {
 * 如果需要获取位置，则`in`、`out`会按位与`mask`，`mask`的大小是 `size - 1`，同时会要求`FIFO`的大小必须是2的幂次，保证了获取位置的效率
 
 ```c
-#define __STRUCT_KFIFO_COMMON(datatype, recsize, ptrtype) \
-	union { \
-		struct __kfifo	kfifo; \
-		datatype	*type; \
-		const datatype	*const_type; \
-		char		(*rectype)[recsize]; \
-		ptrtype		*ptr; \
-		ptrtype const	*ptr_const; \
+#define __STRUCT_KFIFO_COMMON(datatype, recsize, ptrtype) 	\
+	union { 												\
+		struct 			__kfifo	kfifo; 						\
+		datatype		*type; 								\
+		const datatype	*const_type; 						\
+		char			(*rectype)[recsize]; 				\
+		ptrtype			*ptr; 								\
+		ptrtype const	*ptr_const; 						\
 	}
 
-#define __STRUCT_KFIFO(type, size, recsize, ptrtype) \
-{ \
-	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype); \
-	type		buf[((size < 2) || (size & (size - 1))) ? -1 : size]; \
+#define __STRUCT_KFIFO(type, size, recsize, ptrtype) 			\
+{ 																\
+	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype); 				\
+	type buf[((size < 2) || (size & (size - 1))) ? -1 : size]; 	\
 }
 
 #define STRUCT_KFIFO(type, size) \
@@ -424,10 +424,10 @@ struct __kfifo {
  */
 #define DECLARE_KFIFO(fifo, type, size)	STRUCT_KFIFO(type, size) fifo
 
-#define __STRUCT_KFIFO_PTR(type, recsize, ptrtype) \
-{ \
-	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype); \
-	type		buf[0]; \
+#define __STRUCT_KFIFO_PTR(type, recsize, ptrtype) 	\
+{ 													\
+	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype);	\
+	type buf[0]; 									\
 }
 
 #define STRUCT_KFIFO_PTR(type) \
@@ -495,15 +495,15 @@ struct {
  * INIT_KFIFO - Initialize a fifo declared by DECLARE_KFIFO
  * @fifo: name of the declared fifo datatype
  */
-#define INIT_KFIFO(fifo) \
-(void)({ \
-	typeof(&(fifo)) __tmp = &(fifo); \
-	struct __kfifo *__kfifo = &__tmp->kfifo; \
-	__kfifo->in = 0; \
-	__kfifo->out = 0; \
-	__kfifo->mask = __is_kfifo_ptr(__tmp) ? 0 : ARRAY_SIZE(__tmp->buf) - 1;\
-	__kfifo->esize = sizeof(*__tmp->buf); \
-	__kfifo->data = __is_kfifo_ptr(__tmp) ?  NULL : __tmp->buf; \
+#define INIT_KFIFO(fifo) 													\
+(void)({ 																	\
+	typeof(&(fifo)) __tmp = &(fifo); 										\
+	struct __kfifo *__kfifo = &__tmp->kfifo; 								\
+	__kfifo->in = 0; 														\
+	__kfifo->out = 0; 														\
+	__kfifo->mask = __is_kfifo_ptr(__tmp) ? 0 : ARRAY_SIZE(__tmp->buf) - 1;	\
+	__kfifo->esize = sizeof(*__tmp->buf); 									\
+	__kfifo->data = __is_kfifo_ptr(__tmp) ?  NULL : __tmp->buf; 			\
 })
 ```
 
@@ -528,15 +528,15 @@ struct {
  * The fifo will be release with kfifo_free().
  * Return 0 if no error, otherwise an error code.
  */
-#define kfifo_alloc(fifo, size, gfp_mask) \
-__kfifo_int_must_check_helper( \
-({ \
-	typeof((fifo) + 1) __tmp = (fifo); \
-	struct __kfifo *__kfifo = &__tmp->kfifo; \
-	__is_kfifo_ptr(__tmp) ? \
-	__kfifo_alloc(__kfifo, size, sizeof(*__tmp->type), gfp_mask) : \
-	-EINVAL; \
-}) \
+#define kfifo_alloc(fifo, size, gfp_mask) 							\
+__kfifo_int_must_check_helper( 										\
+({ 																	\
+	typeof((fifo) + 1) __tmp = (fifo); 								\
+	struct __kfifo *__kfifo = &__tmp->kfifo; 						\
+	__is_kfifo_ptr(__tmp) ? 										\
+	__kfifo_alloc(__kfifo, size, sizeof(*__tmp->type), gfp_mask) : 	\
+	-EINVAL; 														\
+}) 																	\
 )
 
 // /lib/kfifo.c
@@ -759,9 +759,9 @@ idr_preload_end();
 
 ```c
 #define IDR_INIT_BASE(name, base) {					\
-	.idr_rt = RADIX_TREE_INIT(name, IDR_RT_MARKER),			\
-	.idr_base = (base),						\
-	.idr_next = 0,							\
+	.idr_rt = RADIX_TREE_INIT(name, IDR_RT_MARKER),	\
+	.idr_base = (base),								\
+	.idr_next = 0,									\
 }
 
 #define IDR_INIT(name)	IDR_INIT_BASE(name, 0)
