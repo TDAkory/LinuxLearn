@@ -3,25 +3,25 @@
 > 本文内容基于 Linux v5.4 源码
 
 - [从源码学习Linux中的数据结构(一)](#从源码学习linux中的数据结构一)
-	- [双向链表](#双向链表)
-		- [基本结构](#基本结构)
-		- [常用接口](#常用接口)
-	- [哈希链表](#哈希链表)
-		- [基本结构](#基本结构-1)
-		- [常用接口](#常用接口-1)
-	- [队列](#队列)
-		- [基本结构](#基本结构-2)
-		- [初始化](#初始化)
-		- [入队](#入队)
-		- [出队](#出队)
-	- [映射表`IDR`](#映射表idr)
-		- [基本结构](#基本结构-3)
-		- [基本使用流程](#基本使用流程)
-		- [初始化和销毁](#初始化和销毁)
-		- [插入](#插入)
-		- [查询](#查询)
-		- [遍历](#遍历)
-	- [Ref](#ref)
+  - [双向链表](#双向链表)
+    - [基本结构](#基本结构)
+    - [常用接口](#常用接口)
+  - [哈希链表](#哈希链表)
+    - [基本结构](#基本结构-1)
+    - [常用接口](#常用接口-1)
+  - [队列](#队列)
+    - [基本结构](#基本结构-2)
+    - [初始化](#初始化)
+    - [入队](#入队)
+    - [出队](#出队)
+  - [映射表`IDR`](#映射表idr)
+    - [基本结构](#基本结构-3)
+    - [基本使用流程](#基本使用流程)
+    - [初始化和销毁](#初始化和销毁)
+    - [插入](#插入)
+    - [查询](#查询)
+    - [遍历](#遍历)
+  - [Ref](#ref)
 
 ## 双向链表
 
@@ -44,7 +44,7 @@
 ```c
 // /include/linux/types.h
 struct list_head {
-	struct list_head *next, *prev;
+    struct list_head *next, *prev;
 };
 ```
 
@@ -69,11 +69,11 @@ struct list_head {
  *
  */
 #define container_of(ptr, type, member) ({				            \
-	void *__mptr = (void *)(ptr);					                \
-	BUILD_BUG_ON_MSG(!__same_type(*(ptr), ((type *)0)->member) &&	\
-			 !__same_type(*(ptr), void),			                \
-			 "pointer type mismatch in container_of()");	        \
-	((type *)(__mptr - offsetof(type, member))); })
+    void *__mptr = (void *)(ptr);					                \
+    BUILD_BUG_ON_MSG(!__same_type(*(ptr), ((type *)0)->member) &&	\
+             !__same_type(*(ptr), void),			                \
+             "pointer type mismatch in container_of()");			\
+    ((type *)(__mptr - offsetof(type, member))); })
 
 // /include/linux/compiler_types.h
 /* Are two types/vars the same type (ignoring qualifiers)? */
@@ -97,13 +97,13 @@ struct list_head {
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
 
 #define LIST_HEAD(name) \
-	struct list_head name = LIST_HEAD_INIT(name)
+    struct list_head name = LIST_HEAD_INIT(name)
 
 // 和LIST_HEAD_INIT功能一样，这里传递的是指针，而前面传递的是对象
 static inline void INIT_LIST_HEAD(struct list_head *list)
 {
-	WRITE_ONCE(list->next, list);
-	list->prev = list;
+    WRITE_ONCE(list->next, list);
+    list->prev = list;
 }
 ```
 
@@ -117,26 +117,26 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
  * the prev/next entries already!
  */
 static inline void __list_add(struct list_head *new,
-			      struct list_head *prev,
-			      struct list_head *next)
+                              struct list_head *prev,
+                              struct list_head *next)
 {
-	if (!__list_add_valid(new, prev, next))
-		return;
+    if (!__list_add_valid(new, prev, next))
+        return;
 
-	next->prev = new;
-	new->next = next;
-	new->prev = prev;
-	WRITE_ONCE(prev->next, new);
+    next->prev = new;
+    new->next = next;
+    new->prev = prev;
+    WRITE_ONCE(prev->next, new);
 }
 
 static inline void list_add(struct list_head *new, struct list_head *head)
 {
-	__list_add(new, head, head->next);
+    __list_add(new, head, head->next);
 }
 
 static inline void list_add_tail(struct list_head *new, struct list_head *head)
 {
-	__list_add(new, head->prev, head);
+    __list_add(new, head->prev, head);
 }
 ```
 
@@ -145,23 +145,23 @@ static inline void list_add_tail(struct list_head *new, struct list_head *head)
 ```c
 static inline void __list_del(struct list_head * prev, struct list_head * next)
 {
-	next->prev = prev;
-	WRITE_ONCE(prev->next, next);
+    next->prev = prev;
+    WRITE_ONCE(prev->next, next);
 }
 
 static inline void __list_del_entry(struct list_head *entry)
 {
-	if (!__list_del_entry_valid(entry))
-		return;
+    if (!__list_del_entry_valid(entry))
+        return;
 
-	__list_del(entry->prev, entry->next);
+    __list_del(entry->prev, entry->next);
 }
 
 static inline void list_del(struct list_head *entry)
 {
-	__list_del_entry(entry);
-	entry->next = LIST_POISON1;
-	entry->prev = LIST_POISON2;
+    __list_del_entry(entry);
+    entry->next = LIST_POISON1;
+    entry->prev = LIST_POISON2;
 }
 ```
 
@@ -170,7 +170,7 @@ static inline void list_del(struct list_head *entry)
 ```c
 static inline int list_empty(const struct list_head *head)
 {
-	return READ_ONCE(head->next) == head;
+    return READ_ONCE(head->next) == head;
 }
 ```
 
@@ -178,16 +178,16 @@ static inline int list_empty(const struct list_head *head)
 
 ```c
 #define list_first_entry(ptr, type, member) \
-	list_entry((ptr)->next, type, member)
+    list_entry((ptr)->next, type, member)
 
 #define list_last_entry(ptr, type, member) \
-	list_entry((ptr)->prev, type, member)
+    list_entry((ptr)->prev, type, member)
 
 #define list_for_each(pos, head) \
-	for (pos = (head)->next; pos != (head); pos = pos->next)
+    for (pos = (head)->next; pos != (head); pos = pos->next)
 
 #define list_for_each_prev(pos, head) \
-	for (pos = (head)->prev; pos != (head); pos = pos->prev)
+    for (pos = (head)->prev; pos != (head); pos = pos->prev)
 ```
 
 同时可以看到，这里的遍历其实就是for循环条件的等价替换，可以预见在循环的同时，进行节点的删除或修改，是不够安全的，可能导致循环的终止或访问到非预期的内存位置。
@@ -201,14 +201,14 @@ static inline int list_empty(const struct list_head *head)
  * @n:		another &struct list_head to use as temporary storage
  * @head:	the head for your list.
  */
-#define list_for_each_safe(pos, n, head) 					\
-	for (pos = (head)->next, n = pos->next; pos != (head); 	\
-		pos = n, n = pos->next)
+#define list_for_each_safe(pos, n, head)                    \
+    for (pos = (head)->next, n = pos->next; pos != (head);  \
+        pos = n, n = pos->next)
 
-#define list_for_each_prev_safe(pos, n, head) 	\
-	for (pos = (head)->prev, n = pos->prev; 	\
-	     pos != (head); 						\
-	     pos = n, n = pos->prev)
+#define list_for_each_prev_safe(pos, n, head)   \
+    for (pos = (head)->prev, n = pos->prev;     \
+         pos != (head);                         \
+         pos = n, n = pos->prev)
 ```
 
 当然遍历也包括定位当前数据节点的相邻节点，这里也需要指出 `list_head` 在数据结构中的位置。
@@ -220,10 +220,10 @@ static inline int list_empty(const struct list_head *head)
  * @member:	the name of the list_head within the struct.
  */
 #define list_next_entry(pos, member) \
-	list_entry((pos)->member.next, typeof(*(pos)), member)
+    list_entry((pos)->member.next, typeof(*(pos)), member)
 
 #define list_prev_entry(pos, member) \
-	list_entry((pos)->member.prev, typeof(*(pos)), member)
+    list_entry((pos)->member.prev, typeof(*(pos)), member)
 ```
 
 ## 哈希链表
@@ -235,11 +235,11 @@ static inline int list_empty(const struct list_head *head)
 ```c
 // /include/linux/types.h
 struct hlist_head {
-	struct hlist_node *first;
+    struct hlist_node *first;
 };
 
 struct hlist_node {
-	struct hlist_node *next, **pprev;
+    struct hlist_node *next, **pprev;
 };
 ```
 
@@ -272,8 +272,8 @@ struct hlist_node {
 #define INIT_HLIST_HEAD(ptr) ((ptr)->first = NULL)
 static inline void INIT_HLIST_NODE(struct hlist_node *h)
 {
-	h->next = NULL;
-	h->pprev = NULL;
+    h->next = NULL;
+    h->pprev = NULL;
 }
 ```
 
@@ -282,33 +282,31 @@ static inline void INIT_HLIST_NODE(struct hlist_node *h)
 ```c
 static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
 {
-	struct hlist_node *first = h->first;
-	n->next = first;
-	if (first)
-		first->pprev = &n->next;
-	WRITE_ONCE(h->first, n);
-	n->pprev = &h->first;
+    struct hlist_node *first = h->first;
+    n->next = first;
+    if (first)
+        first->pprev = &n->next;
+    WRITE_ONCE(h->first, n);
+    n->pprev = &h->first;
 }
 
 /* next must be != NULL */
-static inline void hlist_add_before(struct hlist_node *n,
-					struct hlist_node *next)
+static inline void hlist_add_before(struct hlist_node *n, struct hlist_node *next)
 {
-	n->pprev = next->pprev;
-	n->next = next;
-	next->pprev = &n->next;
-	WRITE_ONCE(*(n->pprev), n);
+    n->pprev = next->pprev;
+    n->next = next;
+    next->pprev = &n->next;
+    WRITE_ONCE(*(n->pprev), n);
 }
 
-static inline void hlist_add_behind(struct hlist_node *n,
-				    struct hlist_node *prev)
+static inline void hlist_add_behind(struct hlist_node *n, struct hlist_node *prev)
 {
-	n->next = prev->next;
-	prev->next = n;
-	n->pprev = &prev->next;
+    n->next = prev->next;
+    prev->next = n;
+    n->pprev = &prev->next;
 
-	if (n->next)
-		n->next->pprev  = &n->next;
+    if (n->next)
+        n->next->pprev  = &n->next;
 }
 ```
 
@@ -317,19 +315,19 @@ static inline void hlist_add_behind(struct hlist_node *n,
 ```c
 static inline void __hlist_del(struct hlist_node *n)
 {
-	struct hlist_node *next = n->next;
-	struct hlist_node **pprev = n->pprev;
+    struct hlist_node *next = n->next;
+    struct hlist_node **pprev = n->pprev;
 
-	WRITE_ONCE(*pprev, next);
-	if (next)
-		next->pprev = pprev;
+    WRITE_ONCE(*pprev, next);
+    if (next)
+        next->pprev = pprev;
 }
 
 static inline void hlist_del(struct hlist_node *n)
 {
-	__hlist_del(n);
-	n->next = LIST_POISON1;
-	n->pprev = LIST_POISON2;
+    __hlist_del(n);
+    n->next = LIST_POISON1;
+    n->pprev = LIST_POISON2;
 }
 ```
 
@@ -338,7 +336,7 @@ static inline void hlist_del(struct hlist_node *n)
 ```c
 static inline int hlist_empty(const struct hlist_head *h)
 {
-	return !READ_ONCE(h->first);
+    return !READ_ONCE(h->first);
 }
 ```
 
@@ -351,10 +349,10 @@ static inline int hlist_empty(const struct hlist_head *h)
  * @head:	the head for your list.
  * @member:	the name of the hlist_node within the struct.
  */
-#define hlist_for_each_entry(pos, head, member)								\
-	for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member);		\
-	     pos;																\
-	     pos = hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
+#define hlist_for_each_entry(pos, head, member)                         \
+    for (pos = hlist_entry_safe((head)->first, typeof(*(pos)), member); \
+         pos;                                                           \
+         pos = hlist_entry_safe((pos)->member.next, typeof(*(pos)), member))
 
 /**
  * hlist_for_each_entry_safe - iterate over list of given type safe against removal of list entry
@@ -363,10 +361,10 @@ static inline int hlist_empty(const struct hlist_head *h)
  * @head:	the head for your list.
  * @member:	the name of the hlist_node within the struct.
  */
-#define hlist_for_each_entry_safe(pos, n, head, member) 				\
-	for (pos = hlist_entry_safe((head)->first, typeof(*pos), member);	\
-	     pos && ({ n = pos->member.next; 1; });							\
-	     pos = hlist_entry_safe(n, typeof(*pos), member))
+#define hlist_for_each_entry_safe(pos, n, head, member)                 \
+    for (pos = hlist_entry_safe((head)->first, typeof(*pos), member);   \
+         pos && ({ n = pos->member.next; 1; });                         \
+         pos = hlist_entry_safe(n, typeof(*pos), member))
 ```
 
 ## 队列
@@ -379,11 +377,11 @@ A generic kernel FIFO implementation
 
 ```c
 struct __kfifo {
-	unsigned int	in;
-	unsigned int	out;
-	unsigned int	mask;
-	unsigned int	esize;
-	void			*data;
+    unsigned int    in;
+    unsigned int    out;
+    unsigned int    mask;
+    unsigned int    esize;
+    void            *data;
 };
 ```
 
@@ -397,24 +395,24 @@ struct __kfifo {
 * 如果需要获取位置，则`in`、`out`会按位与`mask`，`mask`的大小是 `size - 1`，同时会要求`FIFO`的大小必须是2的幂次，保证了获取位置的效率
 
 ```c
-#define __STRUCT_KFIFO_COMMON(datatype, recsize, ptrtype) 	\
-	union { 												\
-		struct 			__kfifo	kfifo; 						\
-		datatype		*type; 								\
-		const datatype	*const_type; 						\
-		char			(*rectype)[recsize]; 				\
-		ptrtype			*ptr; 								\
-		ptrtype const	*ptr_const; 						\
-	}
+#define __STRUCT_KFIFO_COMMON(datatype, recsize, ptrtype)   \
+    union {                                                 \
+        struct          __kfifo	kfifo;                      \
+        datatype        *type;                              \
+        const datatype  *const_type;                        \
+        char            (*rectype)[recsize];                \
+        ptrtype         *ptr;                               \
+        ptrtype const   *ptr_const;                         \
+    }
 
-#define __STRUCT_KFIFO(type, size, recsize, ptrtype) 			\
-{ 																\
-	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype); 				\
-	type buf[((size < 2) || (size & (size - 1))) ? -1 : size]; 	\
+#define __STRUCT_KFIFO(type, size, recsize, ptrtype)            \
+{                                                               \
+    __STRUCT_KFIFO_COMMON(type, recsize, ptrtype);              \
+    type buf[((size < 2) || (size & (size - 1))) ? -1 : size];  \
 }
 
 #define STRUCT_KFIFO(type, size) \
-	struct __STRUCT_KFIFO(type, size, 0, type)
+    struct __STRUCT_KFIFO(type, size, 0, type)
 
 /**
  * DECLARE_KFIFO - macro to declare a fifo object
@@ -424,14 +422,14 @@ struct __kfifo {
  */
 #define DECLARE_KFIFO(fifo, type, size)	STRUCT_KFIFO(type, size) fifo
 
-#define __STRUCT_KFIFO_PTR(type, recsize, ptrtype) 	\
-{ 													\
-	__STRUCT_KFIFO_COMMON(type, recsize, ptrtype);	\
-	type buf[0]; 									\
+#define __STRUCT_KFIFO_PTR(type, recsize, ptrtype)  \
+{                                                   \
+    __STRUCT_KFIFO_COMMON(type, recsize, ptrtype);  \
+    type buf[0];                                    \
 }
 
 #define STRUCT_KFIFO_PTR(type) \
-	struct __STRUCT_KFIFO_PTR(type, 0, type)
+    struct __STRUCT_KFIFO_PTR(type, 0, type)
 
 /**
  * DECLARE_KFIFO_PTR - macro to declare a fifo pointer object
@@ -458,15 +456,15 @@ struct __kfifo {
 // } my_fifo
 
 struct {
-	union {
-		struct __kfifo	kfifo;
-		int		*type;
-		const int	*const_type;
-		int		(*rectype)[0];
-		int		*ptr;
-		int const	*ptr_const;
-	};
-	int buf[16];
+    union {
+        struct __kfifo  kfifo;
+        int             *type;
+        const int       *const_type;
+        int             (*rectype)[0];
+        int             *ptr;
+        int const       *ptr_const;
+    };
+    int buf[16];
 } my_fifo;
 ```
 
@@ -483,7 +481,7 @@ struct {
  * outside of the fifo structure.
  */
 #define	__is_kfifo_ptr(fifo) \
-	(sizeof(*fifo) == sizeof(STRUCT_KFIFO_PTR(typeof(*(fifo)->type))))
+    (sizeof(*fifo) == sizeof(STRUCT_KFIFO_PTR(typeof(*(fifo)->type))))
 ```
 
 ### 初始化
@@ -495,15 +493,15 @@ struct {
  * INIT_KFIFO - Initialize a fifo declared by DECLARE_KFIFO
  * @fifo: name of the declared fifo datatype
  */
-#define INIT_KFIFO(fifo) 													\
-(void)({ 																	\
-	typeof(&(fifo)) __tmp = &(fifo); 										\
-	struct __kfifo *__kfifo = &__tmp->kfifo; 								\
-	__kfifo->in = 0; 														\
-	__kfifo->out = 0; 														\
-	__kfifo->mask = __is_kfifo_ptr(__tmp) ? 0 : ARRAY_SIZE(__tmp->buf) - 1;	\
-	__kfifo->esize = sizeof(*__tmp->buf); 									\
-	__kfifo->data = __is_kfifo_ptr(__tmp) ?  NULL : __tmp->buf; 			\
+#define INIT_KFIFO(fifo)                                                    \
+(void)({                                                                    \
+    typeof(&(fifo)) __tmp = &(fifo);                                        \
+    struct __kfifo *__kfifo = &__tmp->kfifo;                                \
+    __kfifo->in = 0;                                                        \
+    __kfifo->out = 0;                                                       \
+    __kfifo->mask = __is_kfifo_ptr(__tmp) ? 0 : ARRAY_SIZE(__tmp->buf) - 1; \
+    __kfifo->esize = sizeof(*__tmp->buf);                                   \
+    __kfifo->data = __is_kfifo_ptr(__tmp) ?  NULL : __tmp->buf;             \
 })
 ```
 
@@ -528,46 +526,46 @@ struct {
  * The fifo will be release with kfifo_free().
  * Return 0 if no error, otherwise an error code.
  */
-#define kfifo_alloc(fifo, size, gfp_mask) 							\
-__kfifo_int_must_check_helper( 										\
-({ 																	\
-	typeof((fifo) + 1) __tmp = (fifo); 								\
-	struct __kfifo *__kfifo = &__tmp->kfifo; 						\
-	__is_kfifo_ptr(__tmp) ? 										\
-	__kfifo_alloc(__kfifo, size, sizeof(*__tmp->type), gfp_mask) : 	\
-	-EINVAL; 														\
-}) 																	\
+#define kfifo_alloc(fifo, size, gfp_mask)                           \
+__kfifo_int_must_check_helper(                                      \
+({                                                                  \
+    typeof((fifo) + 1) __tmp = (fifo);                              \
+    struct __kfifo *__kfifo = &__tmp->kfifo;                        \
+    __is_kfifo_ptr(__tmp) ?                                         \
+    __kfifo_alloc(__kfifo, size, sizeof(*__tmp->type), gfp_mask) :  \
+    -EINVAL;                                                        \
+})                                                                  \
 )
 
 // /lib/kfifo.c
 int __kfifo_alloc(struct __kfifo *fifo, unsigned int size,
-		size_t esize, gfp_t gfp_mask)
+        size_t esize, gfp_t gfp_mask)
 {
-	/*
-	 * round up to the next power of 2, since our 'let the indices
-	 * wrap' technique works only in this case.
-	 */
-	size = roundup_pow_of_two(size);
+    /*
+     * round up to the next power of 2, since our 'let the indices
+     * wrap' technique works only in this case.
+     */
+    size = roundup_pow_of_two(size);
 
-	fifo->in = 0;
-	fifo->out = 0;
-	fifo->esize = esize;
+    fifo->in = 0;
+    fifo->out = 0;
+    fifo->esize = esize;
 
-	if (size < 2) {
-		fifo->data = NULL;
-		fifo->mask = 0;
-		return -EINVAL;
-	}
+    if (size < 2) {
+        fifo->data = NULL;
+        fifo->mask = 0;
+        return -EINVAL;
+    }
 
-	fifo->data = kmalloc_array(esize, size, gfp_mask);
+    fifo->data = kmalloc_array(esize, size, gfp_mask);
 
-	if (!fifo->data) {
-		fifo->mask = 0;
-		return -ENOMEM;
-	}
-	fifo->mask = size - 1;
+    if (!fifo->data) {
+        fifo->mask = 0;
+        return -ENOMEM;
+    }
+    fifo->mask = size - 1;
 
-	return 0;
+    return 0;
 }
 EXPORT_SYMBOL(__kfifo_alloc);
 ```
@@ -578,44 +576,44 @@ EXPORT_SYMBOL(__kfifo_alloc);
 
 ```c
 static void kfifo_copy_in(struct __kfifo *fifo, const void *src,
-		unsigned int len, unsigned int off)
+        unsigned int len, unsigned int off)
 {
-	unsigned int size = fifo->mask + 1;
-	unsigned int esize = fifo->esize;
-	unsigned int l;
+    unsigned int size = fifo->mask + 1;
+    unsigned int esize = fifo->esize;
+    unsigned int l;
 
-	off &= fifo->mask;
-	// 可以认为off、size、len都是归一化的，因此当element_size != 1时，需要round up到其真实大小
-	if (esize != 1) {
-		off *= esize;
-		size *= esize;
-		len *= esize;
-	}
-	// 这里体现了FIFO是循环的，当尾部空余不足以放下数据的时候，会对数据进行切分，分别拷贝在尾部和头部
-	l = min(len, size - off);
+    off &= fifo->mask;
+    // 可以认为off、size、len都是归一化的，因此当element_size != 1时，需要round up到其真实大小
+    if (esize != 1) {
+        off *= esize;
+        size *= esize;
+        len *= esize;
+    }
+    // 这里体现了FIFO是循环的，当尾部空余不足以放下数据的时候，会对数据进行切分，分别拷贝在尾部和头部
+    l = min(len, size - off);
 
-	memcpy(fifo->data + off, src, l);
-	memcpy(fifo->data, src + l, len - l);
-	/*
-	 * make sure that the data in the fifo is up to date before
-	 * incrementing the fifo->in index counter
-	 */
-	smp_wmb();
+    memcpy(fifo->data + off, src, l);
+    memcpy(fifo->data, src + l, len - l);
+    /*
+     * make sure that the data in the fifo is up to date before
+     * incrementing the fifo->in index counter
+     */
+    smp_wmb();
 }
 
 unsigned int __kfifo_in(struct __kfifo *fifo,
-		const void *buf, unsigned int len)
+        const void *buf, unsigned int len)
 {
-	unsigned int l;
-	// 校验FIFO的可用空间是否足够，不足的情况下，会通过改写len对数据进行截断
-	l = kfifo_unused(fifo);
-	if (len > l)
-		len = l;
+    unsigned int l;
+    // 校验FIFO的可用空间是否足够，不足的情况下，会通过改写len对数据进行截断
+    l = kfifo_unused(fifo);
+    if (len > l)
+        len = l;
 
-	kfifo_copy_in(fifo, buf, len, fifo->in);
-	// 完成拷贝之后，再更新指针位置，通过上述smp_wmb保证了数据的可见性
-	fifo->in += len;
-	return len;
+    kfifo_copy_in(fifo, buf, len, fifo->in);
+    // 完成拷贝之后，再更新指针位置，通过上述smp_wmb保证了数据的可见性
+    fifo->in += len;
+    return len;
 }
 EXPORT_SYMBOL(__kfifo_in);
 ```
@@ -626,49 +624,49 @@ EXPORT_SYMBOL(__kfifo_in);
 
 ```c
 static void kfifo_copy_out(struct __kfifo *fifo, void *dst,
-		unsigned int len, unsigned int off)
+        unsigned int len, unsigned int off)
 {
-	unsigned int size = fifo->mask + 1;
-	unsigned int esize = fifo->esize;
-	unsigned int l;
+    unsigned int size = fifo->mask + 1;
+    unsigned int esize = fifo->esize;
+    unsigned int l;
 
-	off &= fifo->mask;
-	if (esize != 1) {
-		off *= esize;
-		size *= esize;
-		len *= esize;
-	}
-	l = min(len, size - off);
+    off &= fifo->mask;
+    if (esize != 1) {
+        off *= esize;
+        size *= esize;
+        len *= esize;
+    }
+    l = min(len, size - off);
 
-	memcpy(dst, fifo->data + off, l);
-	memcpy(dst + l, fifo->data, len - l);
-	/*
-	 * make sure that the data is copied before
-	 * incrementing the fifo->out index counter
-	 */
-	smp_wmb();
+    memcpy(dst, fifo->data + off, l);
+    memcpy(dst + l, fifo->data, len - l);
+    /*
+     * make sure that the data is copied before
+     * incrementing the fifo->out index counter
+     */
+    smp_wmb();
 }
 
 unsigned int __kfifo_out_peek(struct __kfifo *fifo,
-		void *buf, unsigned int len)
+        void *buf, unsigned int len)
 {
-	unsigned int l;
+    unsigned int l;
 
-	l = fifo->in - fifo->out;
-	if (len > l)
-		len = l;
+    l = fifo->in - fifo->out;
+    if (len > l)
+        len = l;
 
-	kfifo_copy_out(fifo, buf, len, fifo->out);
-	return len;
+    kfifo_copy_out(fifo, buf, len, fifo->out);
+    return len;
 }
 EXPORT_SYMBOL(__kfifo_out_peek);
 
 unsigned int __kfifo_out(struct __kfifo *fifo,
-		void *buf, unsigned int len)
+        void *buf, unsigned int len)
 {
-	len = __kfifo_out_peek(fifo, buf, len);
-	fifo->out += len;
-	return len;
+    len = __kfifo_out_peek(fifo, buf, len);
+    fifo->out += len;
+    return len;
 }
 EXPORT_SYMBOL(__kfifo_out);
 ```
@@ -758,10 +756,10 @@ idr_preload_end();
 静态初始化通过如下宏展开实现，完成了`radix tree`的初始化，并把两个`id`都初始化为零
 
 ```c
-#define IDR_INIT_BASE(name, base) {					\
-	.idr_rt = RADIX_TREE_INIT(name, IDR_RT_MARKER),	\
-	.idr_base = (base),								\
-	.idr_next = 0,									\
+#define IDR_INIT_BASE(name, base) {                 \
+    .idr_rt = RADIX_TREE_INIT(name, IDR_RT_MARKER), \
+    .idr_base = (base),                             \
+    .idr_next = 0,                                  \
 }
 
 #define IDR_INIT(name)	IDR_INIT_BASE(name, 0)
@@ -774,9 +772,9 @@ idr_preload_end();
 ```c
 static inline void idr_init_base(struct idr *idr, int base)
 {
-	INIT_RADIX_TREE(&idr->idr_rt, IDR_RT_MARKER);
-	idr->idr_base = base;
-	idr->idr_next = 0;
+    INIT_RADIX_TREE(&idr->idr_rt, IDR_RT_MARKER);
+    idr->idr_base = base;
+    idr->idr_next = 0;
 }
 
 /**
@@ -788,7 +786,7 @@ static inline void idr_init_base(struct idr *idr, int base)
  */
 static inline void idr_init(struct idr *idr)
 {
-	idr_init_base(idr, 0);
+    idr_init_base(idr, 0);
 }
 ```
 
@@ -811,7 +809,7 @@ static inline void idr_init(struct idr *idr)
  */
 void *idr_remove(struct idr *idr, unsigned long id)
 {
-	return radix_tree_delete_item(&idr->idr_rt, id - idr->idr_base, NULL);
+    return radix_tree_delete_item(&idr->idr_rt, id - idr->idr_base, NULL);
 }
 EXPORT_SYMBOL_GPL(idr_remove);
 
@@ -829,11 +827,11 @@ EXPORT_SYMBOL_GPL(idr_remove);
  */
 void idr_destroy(struct idr *idr)
 {
-	struct radix_tree_node *node = rcu_dereference_raw(idr->idr_rt.xa_head);
-	if (radix_tree_is_internal_node(node))
-		radix_tree_free_nodes(node);
-	idr->idr_rt.xa_head = NULL;
-	root_tag_set(&idr->idr_rt, IDR_FREE);
+    struct radix_tree_node *node = rcu_dereference_raw(idr->idr_rt.xa_head);
+    if (radix_tree_is_internal_node(node))
+        radix_tree_free_nodes(node);
+    idr->idr_rt.xa_head = NULL;
+    root_tag_set(&idr->idr_rt, IDR_FREE);
 }
 EXPORT_SYMBOL(idr_destroy);
 ```
@@ -869,22 +867,22 @@ EXPORT_SYMBOL(idr_destroy);
  */
 int idr_alloc_cyclic(struct idr *idr, void *ptr, int start, int end, gfp_t gfp)
 {
-	u32 id = idr->idr_next;
-	int err, max = end > 0 ? end - 1 : INT_MAX;
+    u32 id = idr->idr_next;
+    int err, max = end > 0 ? end - 1 : INT_MAX;
 
-	if ((int)id < start)
-		id = start;
+    if ((int)id < start)
+        id = start;
 
-	err = idr_alloc_u32(idr, ptr, &id, max, gfp);
-	if ((err == -ENOSPC) && (id > start)) {
-		id = start;
-		err = idr_alloc_u32(idr, ptr, &id, max, gfp);
-	}
-	if (err)
-		return err;
+    err = idr_alloc_u32(idr, ptr, &id, max, gfp);
+    if ((err == -ENOSPC) && (id > start)) {
+        id = start;
+        err = idr_alloc_u32(idr, ptr, &id, max, gfp);
+    }
+    if (err)
+        return err;
 
-	idr->idr_next = id + 1;
-	return id;
+    idr->idr_next = id + 1;
+    return id;
 }
 EXPORT_SYMBOL(idr_alloc_cyclic);
 ```
@@ -899,28 +897,28 @@ int idr_alloc(struct idr *idr, void *ptr, int start, int end, gfp_t gfp)
 
 ```c
 int idr_alloc_u32(struct idr *idr, void *ptr, u32 *nextid,
-			unsigned long max, gfp_t gfp)
+            unsigned long max, gfp_t gfp)
 {
-	struct radix_tree_iter iter;
-	void __rcu **slot;
-	unsigned int base = idr->idr_base;
-	unsigned int id = *nextid;
+    struct radix_tree_iter iter;
+    void __rcu **slot;
+    unsigned int base = idr->idr_base;
+    unsigned int id = *nextid;
 
-	if (WARN_ON_ONCE(!(idr->idr_rt.xa_flags & ROOT_IS_IDR)))
-		idr->idr_rt.xa_flags |= IDR_RT_MARKER;
+    if (WARN_ON_ONCE(!(idr->idr_rt.xa_flags & ROOT_IS_IDR)))
+        idr->idr_rt.xa_flags |= IDR_RT_MARKER;
 
-	id = (id < base) ? 0 : id - base;
-	radix_tree_iter_init(&iter, id);
-	slot = idr_get_free(&idr->idr_rt, &iter, gfp, max - base);
-	if (IS_ERR(slot))
-		return PTR_ERR(slot);
+    id = (id < base) ? 0 : id - base;
+    radix_tree_iter_init(&iter, id);
+    slot = idr_get_free(&idr->idr_rt, &iter, gfp, max - base);
+    if (IS_ERR(slot))
+        return PTR_ERR(slot);
 
-	*nextid = iter.index + base;
-	/* there is a memory barrier inside radix_tree_iter_replace() */
-	radix_tree_iter_replace(&idr->idr_rt, &iter, slot, ptr);
-	radix_tree_iter_tag_clear(&idr->idr_rt, &iter, IDR_FREE);
+    *nextid = iter.index + base;
+    /* there is a memory barrier inside radix_tree_iter_replace() */
+    radix_tree_iter_replace(&idr->idr_rt, &iter, slot, ptr);
+    radix_tree_iter_tag_clear(&idr->idr_rt, &iter, IDR_FREE);
 
-	return 0;
+    return 0;
 }
 EXPORT_SYMBOL_GPL(idr_alloc_u32);
 ```
@@ -946,7 +944,7 @@ EXPORT_SYMBOL_GPL(idr_alloc_u32);
  */
 void *idr_find(const struct idr *idr, unsigned long id)
 {
-	return radix_tree_lookup(&idr->idr_rt, id - idr->idr_base);
+    return radix_tree_lookup(&idr->idr_rt, id - idr->idr_base);
 }
 EXPORT_SYMBOL_GPL(idr_find);
 ```
@@ -961,7 +959,7 @@ EXPORT_SYMBOL_GPL(idr_find);
 
 // Iterate through all stored pointers.
 int idr_for_each(const struct idr *idr,
-		int (*fn)(int id, void *p, void *data), void *data);
+        int (*fn)(int id, void *p, void *data), void *data);
 ```
 
 > 针对 `radix tree` 及其他数据结构，会在后续文章"从源码学习Linux中的数据结构(二)"继续学习。
