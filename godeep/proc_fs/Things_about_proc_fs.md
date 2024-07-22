@@ -1,4 +1,7 @@
-# [/proc](https://docs.kernel.org/filesystems/proc.html)
+# 深入理解`/proc`文件系统
+
+> [/proc](https://docs.kernel.org/filesystems/proc.html)
+> [procfs](https://en.wikipedia.org/wiki/Procfs)
 
 * `/proc` directory is NOT a real File System，It is a Virtual File System
 * It is mapped to `/proc` and mounted at boot time.

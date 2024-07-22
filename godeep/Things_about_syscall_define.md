@@ -1,15 +1,14 @@
 # SYSCALL_DEFINE
 
 - [SYSCALL\_DEFINE](#syscall_define)
-	- [系统调用定义宏](#系统调用定义宏)
-	- [系统调用的一般链路](#系统调用的一般链路)
-	- [系统调用的展开](#系统调用的展开)
-	- [系统调用表](#系统调用表)
-	- [`SYSCALL_DEFINE0`](#syscall_define0)
-	- [`SYSCALL_DEFINEn`](#syscall_definen)
-	- [`__X64_SYS_STUBx`](#__x64_sys_stubx)
-	- [Example of expansion of `write`](#example-of-expansion-of-write)
-
+  - [系统调用定义宏](#系统调用定义宏)
+  - [系统调用的一般链路](#系统调用的一般链路)
+  - [系统调用的展开](#系统调用的展开)
+  - [系统调用表](#系统调用表)
+  - [`SYSCALL_DEFINE0`](#syscall_define0)
+  - [`SYSCALL_DEFINEn`](#syscall_definen)
+  - [`__X64_SYS_STUBx`](#__x64_sys_stubx)
+  - [Example of expansion of `write`](#example-of-expansion-of-write)
 
 > include/linux/syscalls.h
 > 
@@ -18,16 +17,18 @@
 > [Linux Kernel - System Call](https://blog.jm233333.com/linux-kernel/system-call/#syscall-definition)
 > 
 > [Adding a New System Call](https://www.kernel.org/doc/html/latest/process/adding-syscalls.html?highlight=syscall_define)
+>
+> [linux v5.4 syscall](../../BlogSrc/how_to_define_a_syscall.md)
 
 ## 系统调用定义宏
 
 ```cpp
 #ifndef SYSCALL_DEFINE0
 #define SYSCALL_DEFINE0(sname)					\
-	SYSCALL_METADATA(_##sname, 0);				\
-	asmlinkage long sys_##sname(void);			\
-	ALLOW_ERROR_INJECTION(sys_##sname, ERRNO);		\
-	asmlinkage long sys_##sname(void)
+    SYSCALL_METADATA(_##sname, 0);				\
+    asmlinkage long sys_##sname(void);			\
+    ALLOW_ERROR_INJECTION(sys_##sname, ERRNO);		\
+    asmlinkage long sys_##sname(void)
 #endif /* SYSCALL_DEFINE0 */
 
 #define SYSCALL_DEFINE1(name, ...) SYSCALL_DEFINEx(1, _##name, __VA_ARGS__)
@@ -38,8 +39,8 @@
 #define SYSCALL_DEFINE6(name, ...) SYSCALL_DEFINEx(6, _##name, __VA_ARGS__)
 
 #define SYSCALL_DEFINEx(x, sname, ...)				\
-	SYSCALL_METADATA(sname, x, __VA_ARGS__)			\
-	__SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
+    SYSCALL_METADATA(sname, x, __VA_ARGS__)			\
+    __SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
 
 /*
  * The asmlinkage stub is aliased to a function named __se_sys_*() which
@@ -48,23 +49,23 @@
  */
 #ifndef __SYSCALL_DEFINEx
 #define __SYSCALL_DEFINEx(x, name, ...)					\
-	__diag_push();							\
-	__diag_ignore(GCC, 8, "-Wattribute-alias",			\
-		      "Type aliasing is used to sanitize syscall arguments");\
-	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))	\
-		__attribute__((alias(__stringify(__se_sys##name))));	\
-	ALLOW_ERROR_INJECTION(sys##name, ERRNO);			\
-	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
-	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
-	asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
-	{								\
-		long ret = __do_sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));\
-		__MAP(x,__SC_TEST,__VA_ARGS__);				\
-		__PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));	\
-		return ret;						\
-	}								\
-	__diag_pop();							\
-	static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+    __diag_push();							\
+    __diag_ignore(GCC, 8, "-Wattribute-alias",			\
+              "Type aliasing is used to sanitize syscall arguments");\
+    asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))	\
+        __attribute__((alias(__stringify(__se_sys##name))));	\
+    ALLOW_ERROR_INJECTION(sys##name, ERRNO);			\
+    static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));\
+    asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__));	\
+    asmlinkage long __se_sys##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
+    {								\
+        long ret = __do_sys##name(__MAP(x,__SC_CAST,__VA_ARGS__));\
+        __MAP(x,__SC_TEST,__VA_ARGS__);				\
+        __PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));	\
+        return ret;						\
+    }								\
+    __diag_pop();							\
+    static inline long __do_sys##name(__MAP(x,__SC_DECL,__VA_ARGS__))
 #endif /* __SYSCALL_DEFINEx */
 ```
 
@@ -97,26 +98,27 @@
     call	do_syscall_64		/* returns with IRQs disabled */
     ```
 
-	- `do_syscall_64` 和 `do_syscall_x64` 定义在 arch/x86/entry/common.c
-	- `do_syscall_x64` 的核心就是查找调用表，传递参数执行调用，其执行结果会指标保存在寄存器中
-    
-	```c
-	static __always_inline bool do_syscall_x64(struct pt_regs *regs, int nr)
-	{
-		/*
-		 * Convert negative numbers to very high and thus out of range
-		 * numbers for comparisons.
-		 */
-		unsigned int unr = nr;
+  - `do_syscall_64` 和 `do_syscall_x64` 定义在 arch/x86/entry/common.c
+  - `do_syscall_x64` 的核心就是查找调用表，传递参数执行调用，其执行结果会指标保存在寄存器中
 
-		if (likely(unr < NR_syscalls)) {
-			unr = array_index_nospec(unr, 	NR_syscalls);
-			regs->ax = sys_call_table[unr]	(regs);
-			return true;
-		}
-		return false;
-	}
-	```
+    ```c
+    static __always_inline bool do_syscall_x64(struct pt_regs *regs, int nr)
+    {
+        /*
+         * Convert negative numbers to very high and thus out of range
+         * numbers for comparisons.
+         */
+        unsigned int unr = nr;
+
+        if (likely(unr < NR_syscalls)) {
+            unr = array_index_nospec(unr, 	NR_syscalls);
+            regs->ax = sys_call_table[unr]	(regs);
+            return true;
+        }
+        return false;
+    }
+    ```
+
 - Then, `do_syscall_x64` will call the corresponding function (e.g. __x64_sys_write) through the mapping array `sys_call_table` and the syscall id passed from the user space.
 - Finally, the execution returns to user mode (see the end of entry_SYSCALL_64).
 
@@ -127,12 +129,12 @@
 ```cpp
 ssize_t ksys_write(unsigned int fd, const char __user *buf, size_t count)
 {
-	...
+    ...
 }
 
 SYSCALL_DEFINE3(write, unsigned int, fd, const char __user *, buf, size_t, count)
 {
-	return ksys_write(fd, buf, count);
+    return ksys_write(fd, buf, count);
 }
 ```
 
@@ -227,24 +229,24 @@ asmlinkage const sys_call_ptr_t sys_call_table[] = {
 
 ```c
 #define SYSCALL_DEFINE0(sname)						\
-	SYSCALL_METADATA(_##sname, 0);					\
-	static long __do_sys_##sname(const struct pt_regs *__unused);	\
-	__X64_SYS_STUB0(sname)						\
-	__IA32_SYS_STUB0(sname)						\
-	static long __do_sys_##sname(const struct pt_regs *__unused)
+    SYSCALL_METADATA(_##sname, 0);					\
+    static long __do_sys_##sname(const struct pt_regs *__unused);	\
+    __X64_SYS_STUB0(sname)						\
+    __IA32_SYS_STUB0(sname)						\
+    static long __do_sys_##sname(const struct pt_regs *__unused)
 ```
 
 __X64_SYS_STUB0 定义在 arch/x86/include/asm/syscall_wrapper.h
 
 ```c
 #define __X64_SYS_STUB0(name)						\
-	__SYS_STUB0(x64, sys_##name)
+    __SYS_STUB0(x64, sys_##name)
 
 #define __SYS_STUB0(abi, name)						\
-	long __##abi##_##name(const struct pt_regs *regs);		\
-	ALLOW_ERROR_INJECTION(__##abi##_##name, ERRNO);			\	// 需要宏 CONFIG_FUNCTION_ERROR_INJECTION，可以忽略
-	long __##abi##_##name(const struct pt_regs *regs)		\
-		__alias(__do_##name);
+    long __##abi##_##name(const struct pt_regs *regs);		\
+    ALLOW_ERROR_INJECTION(__##abi##_##name, ERRNO);			\	// 需要宏 CONFIG_FUNCTION_ERROR_INJECTION，可以忽略
+    long __##abi##_##name(const struct pt_regs *regs)		\
+        __alias(__do_##name);
 ```
 
 以 getpid 函数为例，上述封装会展开为：
