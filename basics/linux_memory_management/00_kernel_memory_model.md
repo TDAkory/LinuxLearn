@@ -5,6 +5,7 @@
 - [A formal kernel memory-ordering model (part 1)](https://lwn.net/Articles/718628/)
 - [A formal kernel memory-ordering model (part 2)](https://lwn.net/Articles/720550/)
 - [Linux-Kernel Memory Ordering: Help Arrives At Last!](http://www.rdrop.com/users/paulmck/scalability/paper/LinuxMM.2017.01.19a.LCA.pdf)
+- [深入理解内存屏障](../../../CSFundations/big_fundament/OS/concurrency/01_memory_model_in_depth.md)
 
 ## 从例子开始
 
