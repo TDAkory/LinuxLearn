@@ -247,7 +247,7 @@ struct hlist_node {
 
 特别的是，数据节点 `hlist_node` 是一个二级指针，指向的是前一个节点的 `next` 指针。之所以这么做，是因为链表首个元素的前驱是 `hlist_head`，这种情况下，链表中的`prev`指针无法做到统一表达，因此需要用二级指针来屏蔽这种差异。
 
-![hash_table](https://raw.githubusercontent.com/TDAkory/ImageResources/main/img/hlist_node.jpg)
+![hash_table](https://raw.githubusercontent.com/TDAkory/ImageResources/master/img/hlist_node.jpg)
 
 此外对哈希表节点的数据访问和双向链表的数据访问方式完全一致，通过 `hlist_entry` 宏即可实现：
 
