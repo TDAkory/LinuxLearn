@@ -23,6 +23,10 @@ Codename:	buster
 - [The Linux Kernel](https://www.kernel.org/doc/html/next/index.html)
 - [Kernel Code Repo, github is slow](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/about/)
 
+## Files
+
+- [Instruction tables](https://agner.org/optimize/instruction_tables.pdf)
+
 ## Blogs
 
 - [Linux Performance Analysis in 60,000 Milliseconds](https://netflixtechblog.com/linux-performance-analysis-in-60-000-milliseconds-accc10403c55)
