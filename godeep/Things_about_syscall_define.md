@@ -71,7 +71,7 @@
 
 对系统调用的定义，kernel是支持覆写的，在 include/linux/syscalls.h 头部有如下定义，允许覆盖 `SYSCALL_DEFINE0()` 和 `__SYSCALL_DEFINEx()`，同时调整了头文件路径(arch/x86/include/asm/syscall_wrapper.h)，由此可以达到定义覆写的目的。
 
-> 宏的变更 https://lore.kernel.org/lkml/20180330093720.6780-3-linux@dominikbrodowski.net/
+> 宏的变更可参考 Linux kernel mailing list 中关于 syscall wrapper 的 patch 讨论，Message-ID 前缀为 `20180330093720.6780-3`。
 
 
 ```c
