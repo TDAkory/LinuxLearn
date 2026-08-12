@@ -16,9 +16,5 @@
 * [Things_about_socket_program.md](Things_about_socket_program.md)
 * [Things_about_syscall_define.md](Things_about_syscall_define.md)
 * [Things_in_deep.md](Things_in_deep.md)
-* [memory_consistency_cache_coherence]
-  * [00_abstract.md](memory_consistency_cache_coherence/00_abstract.md)
-  * [01_coherence.md](memory_consistency_cache_coherence/01_coherence.md)
-* [proc_fs]
-  * [Things_about_proc_fs.md](proc_fs/Things_about_proc_fs.md)
-  * [Things_about_proc_pid_fs.md](proc_fs/Things_about_proc_pid_fs.md)
+* [memory_consistency_cache_coherence](memory_consistency_cache_coherence/memoryconsistencycachecoherenceINDEX.md)
+* [proc_fs](proc_fs/procfsINDEX.md)

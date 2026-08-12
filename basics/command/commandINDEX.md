@@ -1,7 +1,8 @@
 # Table of contents
 
-* [../ (basics)](../basicsINDEX.md)
+* [../ (basics)](../LinuxBasicsINDEX.md)
 * [atop.md](atop.md)
+* [dd.md](dd.md)
 * [dmesg.md](dmesg.md)
 * [fio.md](fio.md)
 * [htop.md](htop.md)

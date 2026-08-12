@@ -1,4 +1,4 @@
 # Table of contents
 
-* [../ (basics)](../basicsINDEX.md)
+* [../ (basics)](../LinuxBasicsINDEX.md)
 * [vfs.md](vfs.md)
